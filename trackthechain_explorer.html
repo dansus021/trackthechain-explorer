@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackTheChain - A Simple & Lightweight Blockchain Explorer</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              cyan: '#00F2FE',
+              blue: '#4FACFE',
+              gold: '#F0B90B',
+              dark: '#0B0F17',
+              card: '#131A26',
+              border: '#1F293D'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{--page:#0B0F17;--ink:#EAECEF;--muted:#9CA3AF;--line:#1F293D;--accent:#F0A020;--soft:rgba(240,160,32,.14)}
+    html[data-theme="light"]{--page:#F3F6FB;--ink:#172033;--muted:#5B6678;--line:#D6DFEA}
+    html[data-chain="base"]{--accent:#286AF5;--soft:rgba(40,106,245,.12)}
+    body {
+      background-color:var(--page);color:var(--ink);
+      overflow-x: hidden;
+    }
+    html[data-theme="light"] .bg-brand-dark,html[data-theme="light"] [class*="bg-brand-dark/"]{background:#EAF0F8!important}
+    html[data-theme="light"] .bg-brand-card{background:#fff!important} html[data-theme="light"] .text-white{color:var(--ink)!important}
+    html[data-theme="light"] .text-gray-200,html[data-theme="light"] .text-gray-300{color:#344054!important}
+    html[data-theme="light"] .text-gray-400,html[data-theme="light"] .text-gray-500{color:var(--muted)!important}
+    html[data-theme="light"] .border-brand-border{border-color:var(--line)!important} html[data-theme="light"] .glass-card{background:#ffffffdd;border-color:var(--line)}
+    .text-brand-cyan{color:var(--accent)!important}.bg-brand-cyan{background:var(--accent)!important}.border-brand-cyan{border-color:var(--accent)!important}
+    .glass-card {
+      background: rgba(19, 26, 38, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card-active {
+      border-color: rgba(0, 242, 254, 0.4);
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.15);
+    }
+    .ttc-gradient-text {
+      background: linear-gradient(135deg, #00F2FE 0%, #4FACFE 50%, #F0B90B 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(11, 15, 23, 0.5);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1F293D;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #00F2FE;
+    }
+  </style>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col selection:bg-brand-cyan selection:text-black">
+
+  <!-- Dynamic Interactive Scrollytelling Canvas Background -->
+  <div class="fixed inset-0 pointer-events-none z-0">
+    <canvas id="networkCanvas" class="w-full h-full opacity-50"></canvas>
+  </div>
+
+  <!-- Top Floating Navbar -->
+  <header class="sticky top-0 z-40 w-full backdrop-blur-md bg-brand-dark/80 border-b border-brand-border/60 transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- TrackTheChain Brand Logo -->
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-blue to-brand-cyan p-0.5 flex items-center justify-center shadow-[0_0_15px_rgba(0,242,254,0.3)]">
+          <div class="w-full h-full bg-brand-dark rounded-[10px] flex items-center justify-center text-brand-cyan">
+            <i class="fa-solid fa-link text-sm"></i>
+          </div>
+        </div>
+        <div>
+          <span class="font-display font-bold text-lg tracking-wide text-white">Track<span class="text-brand-cyan">The</span>Chain</span>
+          <span class="text-[10px] bg-brand-cyan/10 text-brand-cyan font-mono px-1.5 py-0.5 rounded ml-1.5 border border-brand-cyan/20">Light Explorer</span>
+        </div>
+      </div>
+
+      <!-- Chain Selector & Live Ticker Pill -->
+      <div class="hidden md:flex items-center gap-4">
+        <!-- Active Chain Pill Dropdown -->
+        <div class="relative group">
+          <button onclick="toggleChainMenu()" class="flex items-center gap-2 bg-brand-card text-white text-xs px-3 py-1.5 rounded-lg border border-brand-border">
+            <span class="w-2 h-2 rounded-full bg-brand-gold animate-pulse"></span>
+            <span id="chainName" class="font-semibold">BNB Smart Chain</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+          </button>
+          
+          <div id="chainMenu" class="absolute right-0 mt-1 w-48 bg-brand-card border border-brand-border rounded-xl shadow-xl py-1 hidden z-50">
+            <div class="px-3 py-1.5 text-[10px] text-gray-400 font-mono uppercase border-b border-brand-border">Supported Chains</div>
+            <button onclick="selectChain('bsc')" class="w-full text-left px-3 py-2 text-xs">🟠 BNB Smart Chain (BSC)</button>
+            <button onclick="selectChain('base')" class="w-full text-left px-3 py-2 text-xs">🔵 Base</button>
+          </div>
+        </div>
+
+        <!-- Network Ticker -->
+        <div class="flex items-center gap-4 text-xs font-mono bg-brand-card/90 px-4 py-1.5 rounded-full border border-brand-border">
+          <div class="flex items-center gap-2">
+            <span class="text-gray-400">BNB:</span>
+            <span class="text-white font-semibold" id="topBnbPrice">$584.20</span>
+          </div>
+          <div class="h-3 w-[1px] bg-brand-border"></div>
+          <div>
+            <span class="text-gray-400">Gas:</span>
+            <span class="text-brand-gold font-semibold" id="topGasPrice">3.0 Gwei</span>
+          </div>
+          <div class="h-3 w-[1px] bg-brand-border"></div>
+          <div>
+            <span class="text-gray-400">TPS:</span>
+            <span class="text-emerald-400 font-semibold" id="topTps">92.4</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center gap-2">
+        <button onclick="toggleTheme()" class="text-xs bg-brand-card text-gray-300 px-3 py-2 rounded-lg border border-brand-border"><i class="fa-solid fa-circle-half-stroke"></i><span class="hidden sm:inline ml-2">Light / Dark</span></button>
+        <button onclick="triggerDemoSearch()" class="text-xs bg-brand-card hover:bg-brand-border text-gray-300 px-3 py-2 rounded-lg border border-brand-border transition flex items-center gap-2">
+          <i class="fa-solid fa-dice text-brand-cyan"></i>
+          <span class="hidden sm:inline">Simulasi Tx</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-16 space-y-8">
+
+    <!-- Hero & Search Section -->
+    <section class="relative rounded-3xl p-6 sm:p-10 glass-card overflow-hidden">
+      <div class="absolute -right-20 -top-20 w-80 h-80 bg-brand-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
+      
+      <div class="max-w-3xl space-y-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-xs font-mono">
+          <i class="fa-solid fa-bolt"></i> TrackTheChain v1.0
+        </div>
+        <h1 class="text-2xl sm:text-4xl font-display font-bold text-white tracking-tight leading-tight">
+          Lacak Transaksi Blockchain <br class="hidden sm:inline"><span class="ttc-gradient-text">Ringan, Cepat & Tanpa Beban</span>
+        </h1>
+        <p class="text-sm sm:text-base text-gray-400 leading-relaxed">
+          Alternatif explorer yang bersih dari iklan dan bloatware. Dipersenjatai visualisasi node interaktif yang mulus di perangkat HP maupun laptop.
+        </p>
+
+        <!-- Search Bar -->
+        <div class="pt-2">
+          <form id="searchForm" onsubmit="handleSearch(event)" class="relative flex items-center">
+            <div class="absolute left-4 text-gray-400">
+              <i class="fa-solid fa-magnifying-glass text-lg"></i>
+            </div>
+            <input 
+              type="text" 
+              id="searchInput" 
+              placeholder="Cari Address (0x...), Tx Hash, atau Block Number..." 
+              class="w-full bg-brand-dark/90 text-white placeholder-gray-500 pl-12 pr-28 py-4 rounded-2xl border border-brand-border focus:border-brand-cyan focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 font-mono text-xs sm:text-sm transition-all shadow-inner"
+            >
+            <button 
+              type="submit" 
+              class="absolute right-2 bg-gradient-to-r from-brand-blue to-brand-cyan hover:opacity-90 text-black font-semibold px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all flex items-center gap-2 shadow-lg shadow-brand-cyan/20"
+            >
+              <span>Melacak</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </form>
+          <div class="flex items-center justify-between px-2 mt-2 text-[11px] text-gray-500">
+            <span>Contoh: <button onclick="quickFillSearch('0x8894e0a0c962cb723c1976a4421c95949be2d4e3')" class="text-brand-cyan hover:underline font-mono">0x8894...d4e3</button> atau <button onclick="quickFillSearch('42891040')" class="text-brand-cyan hover:underline font-mono">42891040</button></span>
+            <span id="searchTypeBadge" class="hidden font-mono text-brand-cyan font-medium">Auto-Detected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Metrics Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-brand-border/60">
+        <div class="p-3 sm:p-4 rounded-2xl bg-brand-dark/50 border border-brand-border/40">
+          <div class="text-xs text-gray-400 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-cube text-brand-cyan text-xs"></i> Block Height
+          </div>
+          <div class="font-mono text-base sm:text-lg font-bold text-white" id="statBlockHeight">42,891,040</div>
+          <div class="text-[10px] text-emerald-400 mt-0.5">~3.0s Block Time</div>
+        </div>
+
+        <div class="p-3 sm:p-4 rounded-2xl bg-brand-dark/50 border border-brand-border/40">
+          <div class="text-xs text-gray-400 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-bolt text-brand-gold text-xs"></i> Avg Gas Price
+          </div>
+          <div class="font-mono text-base sm:text-lg font-bold text-white" id="statGasPrice">3.0 Gwei</div>
+          <div class="text-[10px] text-gray-400 mt-0.5">~$0.02 Per Tx</div>
+        </div>
+
+        <div class="p-3 sm:p-4 rounded-2xl bg-brand-dark/50 border border-brand-border/40">
+          <div class="text-xs text-gray-400 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-gauge-high text-blue-400 text-xs"></i> Network TPS
+          </div>
+          <div class="font-mono text-base sm:text-lg font-bold text-white" id="statTps">85 TPS</div>
+          <div class="text-[10px] text-emerald-400 mt-0.5">Optimal Load</div>
+        </div>
+
+        <div class="p-3 sm:p-4 rounded-2xl bg-brand-dark/50 border border-brand-border/40">
+          <div class="text-xs text-gray-400 mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-right-left text-purple-400 text-xs"></i> Total Tx (24h)
+          </div>
+          <div class="font-mono text-base sm:text-lg font-bold text-white" id="statTotalTx">5.82M</div>
+          <div class="text-[10px] text-emerald-400 mt-0.5">+4.2% vs kemarin</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Node Visualizer Banner -->
+    <section class="glass-card rounded-2xl p-4 sm:p-6 relative overflow-hidden">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="font-display font-bold text-base sm:text-lg text-white flex items-center gap-2">
+            <i class="fa-solid fa-network-wired text-brand-cyan"></i> Visualisasi Node Jaringan TrackTheChain
+          </h2>
+          <p class="text-xs text-gray-400">Node-node di bawah menggambarkan sinkronisasi validator real-time di jaringan BSC.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleCanvasSpeed()" class="text-xs px-3 py-1.5 rounded-lg bg-brand-dark border border-brand-border text-gray-300 hover:text-white transition">
+            <i class="fa-solid fa-gauge text-brand-cyan mr-1"></i> Kecepatan Node
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mobile Navigation Tabs -->
+    <div class="flex md:hidden bg-brand-card p-1 rounded-xl border border-brand-border">
+      <button onclick="switchTab('blocks')" id="tabBlocksBtn" class="flex-1 py-2 text-xs font-semibold rounded-lg bg-brand-cyan text-black transition">
+        Latest Blocks
+      </button>
+      <button onclick="switchTab('txs')" id="tabTxsBtn" class="flex-1 py-2 text-xs font-semibold rounded-lg text-gray-400 transition">
+        Latest Transactions
+      </button>
+    </div>
+
+    <!-- Dual Feed Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Blocks Feed -->
+      <div id="blocksContainer" class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-display font-bold text-lg text-white flex items-center gap-2">
+            <i class="fa-solid fa-cubes text-brand-cyan"></i> Latest Blocks
+          </h3>
+          <span class="text-xs text-gray-500 font-mono" id="blockUpdateTimer">Live Updating...</span>
+        </div>
+
+        <div class="space-y-3" id="blocksList">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Transactions Feed -->
+      <div id="txsContainer" class="space-y-4 hidden md:block">
+        <div class="flex items-center justify-between">
+          <h3 class="font-display font-bold text-lg text-white flex items-center gap-2">
+            <i class="fa-solid fa-receipt text-brand-cyan"></i> Latest Transactions
+          </h3>
+          <span class="text-xs text-gray-500 font-mono">Live Sync</span>
+        </div>
+
+        <div class="space-y-3" id="txsList">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Detail Modal -->
+  <div id="detailModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+    <div class="glass-card bg-brand-card border border-brand-border w-full max-w-2xl rounded-3xl p-6 relative space-y-6 shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300" id="modalCard">
+      
+      <!-- Close Button -->
+      <button onclick="closeModal()" class="absolute top-5 right-5 text-gray-400 hover:text-white w-8 h-8 rounded-full bg-brand-dark/60 flex items-center justify-center border border-brand-border transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <!-- Modal Header -->
+      <div class="flex items-center gap-3">
+        <div id="modalTypeIcon" class="w-10 h-10 rounded-2xl bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan flex items-center justify-center text-lg">
+          <i class="fa-solid fa-receipt"></i>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-lg text-white" id="modalTitle">Transaction Details</h3>
+          <p class="text-xs text-gray-400 font-mono" id="modalSubtitle">TrackTheChain Inspector</p>
+        </div>
+      </div>
+
+      <!-- Modal Main Data Grid -->
+      <div class="space-y-3 font-mono text-xs max-h-[60vh] overflow-y-auto custom-scrollbar pr-2" id="modalContent">
+        <!-- Content injected dynamically -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="pt-4 border-t border-brand-border flex justify-between items-center">
+        <span class="text-[11px] text-gray-500 font-mono">TrackTheChain Protocol</span>
+        <button onclick="closeModal()" class="bg-brand-border hover:bg-gray-700 text-white font-medium px-5 py-2 rounded-xl text-xs transition">
+          Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    /* ==========================================================================
+       1. CANVAS BACKGROUND (SCROLLYTELLING LIGHTWEIGHT NODE NETWORK)
+       ========================================================================== */
+    const canvas = document.getElementById('networkCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let nodes = [];
+    let speedMultiplier = 1;
+
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Node {
+      constructor() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.radius = Math.random() * 2 + 1.5;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.color = Math.random() > 0.75 ? '#00F2FE' : '#2B3B54';
+      }
+
+      update() {
+        this.x += this.vx * speedMultiplier;
+        this.y += this.vy * speedMultiplier;
+
+        if (this.x < 0 || this.x > width) this.vx *= -1;
+        if (this.y < 0 || this.y > height) this.vy *= -1;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        if (this.color === '#00F2FE') {
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#00F2FE';
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    const nodeCount = Math.min(Math.floor(window.innerWidth / 15), 60);
+    for (let i = 0; i < nodeCount; i++) {
+      nodes.push(new Node());
+    }
+
+    function animateCanvas() {
+      ctx.clearRect(0, 0, width, height);
+
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 130) {
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            const alpha = (1 - dist / 130) * 0.25;
+            ctx.strokeStyle = nodes[i].color === '#00F2FE' || nodes[j].color === '#00F2FE' 
+              ? `rgba(0, 242, 254, ${alpha})` 
+              : `rgba(43, 59, 84, ${alpha})`;
+            ctx.lineWidth = 0.8;
+            ctx.stroke();
+          }
+        }
+      }
+
+      nodes.forEach(node => {
+        node.update();
+        node.draw();
+      });
+
+      requestAnimationFrame(animateCanvas);
+    }
+    animateCanvas();
+
+    function toggleCanvasSpeed() {
+      speedMultiplier = speedMultiplier === 1 ? 3 : 1;
+    }
+
+    /* ==========================================================================
+       2. REAL-TIME DATA GENERATOR
+       ========================================================================== */
+    let currentBlockHeight = 42891040;
+    const validators = ['Ankr Node', 'PancakeSwap Validator', 'Binance Staking', '48Club Node', 'BNB Chain Validator', 'TrackTheChain Node'];
+
+    function generateRandomHash(prefix = '0x', length = 40) {
+      const chars = '0123456789abcdef';
+      let result = prefix;
+      for (let i = 0; i < length; i++) {
+        result += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return result;
+    }
+
+    function createBlock() {
+      currentBlockHeight++;
+      const txCount = Math.floor(Math.random() * 120) + 40;
+      return {
+        number: currentBlockHeight,
+        validator: validators[Math.floor(Math.random() * validators.length)],
+        txs: txCount,
+        reward: (Math.random() * 0.05 + 0.01).toFixed(4),
+        timeSec: 0,
+        hash: generateRandomHash('0x', 64)
+      };
+    }
+
+    function createTx() {
+      return {
+        hash: generateRandomHash('0x', 64),
+        from: generateRandomHash('0x', 40),
+        to: generateRandomHash('0x', 40),
+        value: (Math.random() * 4.5 + 0.01).toFixed(4),
+        gasFee: (Math.random() * 0.0009 + 0.0002).toFixed(6),
+        status: Math.random() > 0.05 ? 'Success' : 'Failed',
+        block: currentBlockHeight
+      };
+    }
+
+    let blocks = [createBlock(), createBlock(), createBlock(), createBlock()];
+    let txs = [createTx(), createTx(), createTx(), createTx(), createTx()];
+
+    /* ==========================================================================
+       3. UI RENDERING & MODALS
+       ========================================================================== */
+    function renderBlocks() {
+      const container = document.getElementById('blocksList');
+      container.innerHTML = blocks.map((b) => `
+        <div onclick="openBlockModal(${b.number})" class="glass-card hover:glass-card-active p-4 rounded-2xl cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-brand-dark border border-brand-border flex items-center justify-center text-brand-cyan font-mono font-bold text-xs">
+                bk
+              </div>
+              <div>
+                <div class="font-mono font-bold text-sm text-white hover:text-brand-cyan transition">#${b.number}</div>
+                <div class="text-xs text-gray-400">Validated by <span class="text-gray-200 font-medium">${b.validator}</span></div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs font-mono font-semibold text-brand-cyan">${b.txs} Txs</div>
+              <div class="text-[10px] text-gray-500 font-mono">${b.timeSec}s lalu</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('statBlockHeight').innerText = currentBlockHeight.toLocaleString();
+    }
+
+    function renderTxs() {
+      const container = document.getElementById('txsList');
+      container.innerHTML = txs.map(t => `
+        <div onclick="openTxModal('${t.hash}')" class="glass-card hover:glass-card-active p-4 rounded-2xl cursor-pointer transition-all duration-200 transform hover:-translate-y-0.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-brand-dark border border-brand-border flex items-center justify-center text-xs text-emerald-400 font-mono">
+                tx
+              </div>
+              <div class="min-w-0">
+                <div class="font-mono text-xs text-brand-cyan truncate max-w-[140px] sm:max-w-[200px]">${t.hash}</div>
+                <div class="text-[11px] text-gray-400 flex items-center gap-1 font-mono">
+                  <span>${t.from.substring(0,6)}...</span>
+                  <i class="fa-solid fa-arrow-right text-[9px] text-gray-600"></i>
+                  <span>${t.to.substring(0,6)}...</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <div class="text-xs font-mono font-bold text-white">${t.value} BNB</div>
+              <div class="text-[10px] text-gray-500 font-mono">Fee: ${t.gasFee}</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openTxModal(hash) {
+      const tx = txs.find(t => t.hash === hash) || {
+        hash: hash,
+        from: '0x8894e0a0c962cb723c1976a4421c95949be2d4e3',
+        to: '0x10ed43c718714eb63d5aa57b78b54704e256024e',
+        value: '1.2500',
+        gasFee: '0.000420',
+        status: 'Success',
+        block: currentBlockHeight
+      };
+
+      const bnbPrice = 584.20;
+      const usdVal = (parseFloat(tx.value) * bnbPrice).toFixed(2);
+
+      document.getElementById('modalTitle').innerText = 'Transaction Detail';
+      document.getElementById('modalSubtitle').innerText = tx.hash;
+      document.getElementById('modalTypeIcon').innerHTML = `<i class="fa-solid fa-receipt"></i>`;
+
+      document.getElementById('modalContent').innerHTML = `
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 flex justify-between items-center">
+          <span class="text-gray-400">Status:</span>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${tx.status === 'Success' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-red-500/20 text-red-400'}">${tx.status}</span>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 flex justify-between items-center">
+          <span class="text-gray-400">Block Height:</span>
+          <span class="text-white font-bold">#${tx.block}</span>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 space-y-1">
+          <div class="text-gray-400 mb-1">From:</div>
+          <div class="text-brand-cyan break-all">${tx.from}</div>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 space-y-1">
+          <div class="text-gray-400 mb-1">To (Contract):</div>
+          <div class="text-brand-cyan break-all">${tx.to}</div>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 flex justify-between items-center">
+          <span class="text-gray-400">Value:</span>
+          <div class="text-right">
+            <span class="text-white font-bold">${tx.value} BNB</span>
+            <span class="text-gray-500 text-[10px] block">($${usdVal} USD)</span>
+          </div>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 flex justify-between items-center">
+          <span class="text-gray-400">Transaction Fee:</span>
+          <span class="text-gray-300">${tx.gasFee} BNB</span>
+        </div>
+      `;
+
+      showModal();
+    }
+
+    function openBlockModal(blockNum) {
+      const block = blocks.find(b => b.number === blockNum) || {
+        number: blockNum,
+        validator: 'TrackTheChain Node',
+        txs: 84,
+        reward: '0.0421',
+        hash: generateRandomHash('0x', 64)
+      };
+
+      document.getElementById('modalTitle').innerText = 'Block Detail';
+      document.getElementById('modalSubtitle').innerText = `#${block.number}`;
+      document.getElementById('modalTypeIcon').innerHTML = `<i class="fa-solid fa-cube"></i>`;
+
+      document.getElementById('modalContent').innerHTML = `
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 flex justify-between items-center">
+          <span class="text-gray-400">Block Height:</span>
+          <span class="text-white font-bold">#${block.number}</span>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 flex justify-between items-center">
+          <span class="text-gray-400">Validated By:</span>
+          <span class="text-brand-cyan font-bold">${block.validator}</span>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 flex justify-between items-center">
+          <span class="text-gray-400">Total Transactions:</span>
+          <span class="text-emerald-400 font-bold">${block.txs} Txs</span>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 flex justify-between items-center">
+          <span class="text-gray-400">Block Reward:</span>
+          <span class="text-white font-bold">${block.reward} BNB</span>
+        </div>
+        <div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 space-y-1">
+          <div class="text-gray-400 mb-1">Block Hash:</div>
+          <div class="text-gray-300 break-all text-[10px]">${block.hash}</div>
+        </div>
+      `;
+
+      showModal();
+    }
+
+    function showModal() {
+      const modal = document.getElementById('detailModal');
+      const card = document.getElementById('modalCard');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        card.classList.remove('scale-95');
+        card.classList.add('scale-100');
+      }, 10);
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('detailModal');
+      const card = document.getElementById('modalCard');
+      modal.classList.add('opacity-0');
+      card.classList.remove('scale-100');
+      card.classList.add('scale-95');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 300);
+    }
+
+    function handleSearch(e) {
+      e.preventDefault();
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) return;
+
+      if (query.startsWith('0x') && query.length > 50) {
+        openTxModal(query);
+      } else if (!isNaN(query)) {
+        openBlockModal(parseInt(query));
+      } else {
+        openTxModal(generateRandomHash('0x', 64));
+      }
+    }
+
+    function quickFillSearch(val) {
+      document.getElementById('searchInput').value = val;
+    }
+
+    function triggerDemoSearch() {
+      const demoHashes = [
+        '0x8894e0a0c962cb723c1976a4421c95949be2d4e3',
+        '42891040',
+        '0xf8b92d7e8293108d3e230491029301e8392019a1829301e82910293810293021'
+      ];
+      const randomVal = demoHashes[Math.floor(Math.random() * demoHashes.length)];
+      quickFillSearch(randomVal);
+      document.getElementById('searchForm').dispatchEvent(new Event('submit'));
+    }
+
+    function switchTab(tab) {
+      const blocksBtn = document.getElementById('tabBlocksBtn');
+      const txsBtn = document.getElementById('tabTxsBtn');
+      const blocksContainer = document.getElementById('blocksContainer');
+      const txsContainer = document.getElementById('txsContainer');
+
+      if (tab === 'blocks') {
+        blocksBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-lg bg-brand-cyan text-black transition';
+        txsBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-lg text-gray-400 transition';
+        blocksContainer.classList.remove('hidden');
+        txsContainer.classList.add('hidden');
+      } else {
+        txsBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-lg bg-brand-cyan text-black transition';
+        blocksBtn.className = 'flex-1 py-2 text-xs font-semibold rounded-lg text-gray-400 transition';
+        txsContainer.classList.remove('hidden');
+        blocksContainer.classList.add('hidden');
+      }
+    }
+
+    const RPCS={bsc:'https://methodical-burned-smoke.bsc.quiknode.pro/21fd4f35f6e4109f0b620438cddf52ab63f8e08b/',base:'https://dark-tame-meadow.base-mainnet.quiknode.pro/b275cefc75d093386988751506f74361e1ee4e0e/'};
+    let activeChain=localStorage.getItem('ttc-chain')||'bsc',rpcId=0;
+    async function rpc(method,params=[]){const r=await fetch(RPCS[activeChain],{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:++rpcId,method,params})});const j=await r.json();if(j.error)throw Error(j.error.message);return j.result;}
+    function toggleTheme(){const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;localStorage.setItem('ttc-theme',t)}
+    function toggleChainMenu(){document.getElementById('chainMenu').classList.toggle('hidden')}
+    function selectChain(c){activeChain=c;localStorage.setItem('ttc-chain',c);document.documentElement.dataset.chain=c;document.getElementById('chainName').textContent=c==='bsc'?'BNB Smart Chain':'Base';document.getElementById('chainMenu').classList.add('hidden');refreshRpc()}
+    async function refreshRpc(){try{const [h,g]=await Promise.all([rpc('eth_blockNumber'),rpc('eth_gasPrice')]);currentBlockHeight=parseInt(h,16);document.getElementById('statBlockHeight').textContent=currentBlockHeight.toLocaleString();const v=(parseInt(g,16)/1e9).toFixed(2)+' Gwei';document.getElementById('statGasPrice').textContent=v;document.getElementById('topGasPrice').textContent=v;document.getElementById('blockUpdateTimer').textContent='RPC live · '+(activeChain==='bsc'?'BSC':'Base')}catch(e){document.getElementById('blockUpdateTimer').textContent='RPC error: '+e.message}}
+    window.handleSearch=async function(e){e.preventDefault();const q=document.getElementById('searchInput').value.trim();if(!q)return;try{let title,sub,rows;if(/^0x[\da-fA-F]{64}$/.test(q)){const x=await rpc('eth_getTransactionByHash',[q]);if(!x)throw Error('Transaksi tidak ditemukan');title='Transaction Detail';sub=x.hash;rows=[['Block',parseInt(x.blockNumber,16)],['From',x.from],['To',x.to||'Contract creation'],['Value',(Number(BigInt(x.value))/1e18).toFixed(6)+(activeChain==='bsc'?' BNB':' ETH')]];}else if(/^0x[\da-fA-F]{40}$/.test(q)){const [b,n]=await Promise.all([rpc('eth_getBalance',[q,'latest']),rpc('eth_getTransactionCount',[q,'latest'])]);title='Address Detail';sub=q;rows=[['Balance',(Number(BigInt(b))/1e18).toFixed(6)+(activeChain==='bsc'?' BNB':' ETH')],['Transactions',parseInt(n,16)]];}else if(/^(0x[\da-fA-F]+|\d+)$/.test(q)){const x=await rpc('eth_getBlockByNumber',['0x'+BigInt(q).toString(16),false]);if(!x)throw Error('Block tidak ditemukan');title='Block Detail';sub='#'+parseInt(x.number,16);rows=[['Hash',x.hash],['Transactions',x.transactions.length],['Time',new Date(parseInt(x.timestamp,16)*1000).toLocaleString()],['Gas used',parseInt(x.gasUsed,16)]];}else throw Error('Input address, transaction hash, atau nomor block');document.getElementById('modalTitle').textContent=title;document.getElementById('modalSubtitle').textContent=sub;document.getElementById('modalContent').innerHTML=rows.map(r=>'<div class="p-3 bg-brand-dark/60 rounded-xl border border-brand-border/60 break-all"><div class="text-gray-400">'+r[0]+'</div><div class="text-white">'+r[1]+'</div></div>').join('');showModal();}catch(x){document.getElementById('blockUpdateTimer').textContent=x.message;}};
+    document.documentElement.dataset.theme=localStorage.getItem('ttc-theme')||'dark';document.documentElement.dataset.chain=activeChain;selectChain(activeChain==='base'?'base':'bsc');setInterval(refreshRpc,15000);
+    renderBlocks();
+    renderTxs();
+
+    setInterval(() => {
+      blocks.unshift(createBlock());
+      if (blocks.length > 5) blocks.pop();
+
+      txs.unshift(createTx());
+      txs.unshift(createTx());
+      if (txs.length > 6) txs.splice(6);
+
+      blocks.forEach(b => b.timeSec += 3);
+
+      renderBlocks();
+      renderTxs();
+
+      document.getElementById('statTps').innerText = (Math.random() * 15 + 80).toFixed(1) + ' TPS';
+      document.getElementById('topTps').innerText = (Math.random() * 15 + 80).toFixed(1);
+    }, 3000);
+
+  </script>
+</body>
+</html>
